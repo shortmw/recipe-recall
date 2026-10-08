@@ -1,5 +1,5 @@
 const CACHE_PREFIX='one-cup-offline-'+encodeURIComponent(new URL(self.registration.scope).pathname)+'-';
-const CACHE=CACHE_PREFIX+'v2';
+const CACHE=CACHE_PREFIX+'v3';
 const REQUIRED=['./','./style.css','./app.js','./backup-crypto.js','./random-quiz.js','./offline.js'];
 const OPTIONAL=['./creator-signature.png','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png'];
 async function tell(message){for(const client of await self.clients.matchAll({type:'window',includeUncontrolled:true}))client.postMessage(message)}

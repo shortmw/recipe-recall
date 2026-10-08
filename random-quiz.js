@@ -1,5 +1,51 @@
 'use strict';
 const quizLines=text=>[...new Set(String(text||'').split(/\n+/).map(s=>s.trim()).filter(Boolean))];
+
+// Comparison only: never rewrite the user's recipe or the displayed answer.
+function quizComparisonText(value){
+ return String(value||'').normalize('NFKC').toLowerCase()
+  .replace(/^\s*(?:\d+[.)、]|[-•·])\s*/, '')
+  .replace(/\d+(?:\.\d+)?\s*(?:ml|㎖|g|그램|밀리리터|회|번|펌프|스푼|스쿱|샷|개)\b/gi,' ')
+  .replace(/\d+(?:\.\d+)?\s*(?:그램|밀리리터|회|번|펌프|스푼|스쿱|샷|개)(?=\s|$|[.,])/g,' ')
+  .replace(/([가-힣]{2,})(?:을|를|으로|에다가|에|부터)(?=\s)/g,'$1')
+  .replace(/(?:해주세요|해 주세요|합니다|하기|한다|해요|하기로|한다음|한 다음)/g,'')
+  .replace(/(?:넣어주세요|넣어 주세요|넣는다|넣어요|넣기|넣고|붓는다|붓기|부어요|첨가|추가|투입)/g,'넣')
+  .replace(/(?:저어주기|저어 주기|저어준다|젓기|섞는다|섞기|믹싱|혼합)/g,'섞')
+  .replace(/(?:스티밍|스팀하기|스팀|steaming|steam)/g,'스팀')
+  .replace(/(?:휘핑크림|휩크림|whipped cream)/g,'휘핑')
+  .replace(/(?:에스프레소|에스프레쏘|espresso)/g,'에스프레소')
+  .replace(/[^a-z0-9가-힣]/g,'');
+}
+function quizTextSimilarity(a,b){
+ if(a===b)return 1;
+ const grams=s=>{const m=new Map();for(let i=0;i<s.length-1;i++){const g=s.slice(i,i+2);m.set(g,(m.get(g)||0)+1);}return m;};
+ const x=grams(a),y=grams(b);let shared=0;
+ for(const [g,n] of x)shared+=Math.min(n,y.get(g)||0);
+ return a.length+b.length>2?2*shared/(a.length+b.length-2):0;
+}
+function quizChoicesTooSimilar(left,right){
+ const a=quizComparisonText(left),b=quizComparisonText(right);
+ if(!a||!b)return true;
+ if(a===b)return true;
+ // A shorter answer contained in a longer one is often also a valid answer.
+ // Applies to any entered words, not a fixed list of recipe names.
+ if(Math.min(a.length,b.length)>=2&&(a.includes(b)||b.includes(a)))return true;
+ if(quizTextSimilarity(a,b)>=.72)return true;
+ // Catch small spelling differences without equating unrelated short words.
+ if(Math.min(a.length,b.length)<4||Math.abs(a.length-b.length)>Math.max(a.length,b.length)*.22)return false;
+ let row=Array.from({length:b.length+1},(_,i)=>i);
+ for(let i=1;i<=a.length;i++){const next=[i];for(let j=1;j<=b.length;j++)next[j]=Math.min(next[j-1]+1,row[j]+1,row[j-1]+(a[i-1]===b[j-1]?0:1));row=next;}
+ return row[b.length]/Math.max(a.length,b.length)<=.22;
+}
+function quizDistinctDistractors(candidates,correctAnswers){
+ const selected=[];
+ for(const candidate of shuffle([...new Set(candidates)])){
+  if(!String(candidate||'').trim()||[...correctAnswers,...selected].some(answer=>quizChoicesTooSimilar(candidate,answer)))continue;
+  selected.push(candidate);if(selected.length===3)break;
+ }
+ return selected;
+}
+
 function buildRandomQuestions(recipes,mode='all',limit=10){
  const source=recipes.filter(r=>!r.demo),questions=[];
  for(const r of source){
@@ -12,12 +58,12 @@ function buildRandomQuestions(recipes,mode='all',limit=10){
    questions.push({r,kind:'quantity',prompt:`${label}은(는) ${shown}회 들어간다.`,options:['O','X'],answer:truth?'O':'X',explanation:`등록된 ${label} 횟수: ${correct}회`});
   }
   if(mode==='all'||mode==='ingredient'){
-   const own=quizLines(r.ingredients),others=[...new Set(source.flatMap(x=>quizLines(x.ingredients)))].filter(x=>!own.includes(x));
-   if(own.length&&others.length){const answer=shuffle([...own])[0];questions.push({r,kind:'ingredient',prompt:'이 음료에 들어가는 재료는 무엇일까요?',answer,options:shuffle([answer,...shuffle(others).slice(0,3)]),explanation:`등록된 재료:\n${r.ingredients}`});}
+   const own=quizLines(r.ingredients),others=quizDistinctDistractors(source.flatMap(x=>quizLines(x.ingredients)),own);
+   if(own.length&&others.length){const answer=shuffle([...own])[0];questions.push({r,kind:'ingredient',prompt:'이 음료에 들어가는 재료는 무엇일까요?',answer,options:shuffle([answer,...others]),explanation:`등록된 재료:\n${r.ingredients}`});}
   }
   if(mode==='all'||mode==='first'){
-   const answer=String(r.first||'').trim(),others=[...new Set(source.map(x=>String(x.first||'').trim()).filter(Boolean))].filter(x=>x!==answer);
-   if(answer&&others.length)questions.push({r,kind:'first',prompt:'등록한 레시피에서 가장 먼저 할 행동은 무엇일까요?',answer,options:shuffle([answer,...shuffle(others).slice(0,3)]),explanation:`등록된 첫 행동:\n${answer}`});
+   const answer=String(r.first||'').trim(),others=quizDistinctDistractors(source.map(x=>String(x.first||'').trim()),[answer]);
+   if(answer&&others.length)questions.push({r,kind:'first',prompt:'등록한 레시피에서 가장 먼저 할 행동은 무엇일까요?',answer,options:shuffle([answer,...others]),explanation:`등록된 첫 행동:\n${answer}`});
   }
   if(mode==='all'||mode==='order'){
    const steps=String(r.steps||'').split(/\n+/).map(s=>s.trim()).filter(Boolean);
