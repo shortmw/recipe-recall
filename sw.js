@@ -1,6 +1,6 @@
 const CACHE_PREFIX='one-cup-offline-'+encodeURIComponent(new URL(self.registration.scope).pathname)+'-';
-const CACHE=CACHE_PREFIX+'v3';
-const REQUIRED=['./','./style.css','./app.js','./backup-crypto.js','./random-quiz.js','./offline.js'];
+const CACHE=CACHE_PREFIX+'v4';
+const REQUIRED=['./','./style.css','./recipe-tools.js','./app.js','./backup-crypto.js','./random-quiz.js','./offline.js'];
 const OPTIONAL=['./creator-signature.png','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png'];
 async function tell(message){for(const client of await self.clients.matchAll({type:'window',includeUncontrolled:true}))client.postMessage(message)}
 async function download(path,cache){const url=new URL(path,self.registration.scope);const response=await fetch(new Request(url.href,{cache:'reload',credentials:'same-origin'}));if(!response.ok)throw Error(path+' HTTP '+response.status);if(new URL(response.url||url.href).origin!==url.origin)throw Error(path+' 로그인 확인 필요');if(path==='./'){const html=await response.clone().text();if(!html.includes('id="quiz-card"'))throw Error('앱 화면 대신 로그인 화면이 응답했어요.');}else if(path.endsWith('.js')||path.endsWith('.css')){if((response.headers.get('content-type')||'').includes('text/html'))throw Error(path+' 파일을 받지 못했어요.');}await cache.put(url.href,response)}
