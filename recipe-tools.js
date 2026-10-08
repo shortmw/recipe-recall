@@ -24,9 +24,6 @@ function openRecipeEditor(id=null,copyId=null){
  const source=data.recipes.find(r=>r.id===(id||copyId));
  if((id||copyId)&&!source)return toast('레시피를 찾지 못했어요.');
  $('form-title').textContent=id?'레시피 수정':copyId?'레시피 복제':'레시피 추가';
- $('copy-source-wrap').hidden=!!id;
- $('copy-source').innerHTML='<option value="">새로 작성하기</option>'+data.recipes.map(r=>`<option value="${esc(r.id)}">${esc(r.name)} · ${esc(TYPES[r.temperature])} · ${esc(sizeLabel(r.size))}</option>`).join('');
- $('copy-source').value=copyId||'';
  if(source)fillRecipeFields(source);
  else {if(recipeCategory!=='all')$('temperature').value=recipeCategory;if(recipeSize!=='all'&&Object.hasOwn(SIZES,recipeSize))$('size').value=recipeSize}
  if(copyId)$('name').value=(source.name+' (복사)').slice(0,100);
@@ -70,14 +67,6 @@ function installRecipeTools(){
  const help=document.createElement('dialog');help.id='recipe-sort-dialog';help.setAttribute('aria-labelledby','recipe-sort-title');
  help.innerHTML='<h2 id="recipe-sort-title">정렬 방식 안내</h2><dl><dt>최근 등록순</dt><dd>나중에 등록한 레시피부터 보여요.</dd><dt>오래된 등록순</dt><dd>먼저 등록한 레시피부터 보여요.</dd><dt>최근 수정순</dt><dd>최근에 저장하거나 수정한 레시피부터 보여요.</dd><dt>가나다순</dt><dd>음료 이름 순서로 보여요.</dd></dl><p>어떤 정렬 상태에서도 카드의 이름이나 빈 부분을 약 0.5초간 길게 누른 뒤 위아래로 끌어 놓을 수 있어요. 버튼과 체크박스에서는 이동이 시작되지 않아요.</p><p>옮긴 순서는 자동으로 저장돼요. 정렬 메뉴를 다시 선택하면 해당 기준으로 재정렬돼요. 검색·분류 중에는 보이는 카드끼리만 순서가 바뀌어요.</p><p>키보드: 카드에 초점을 맞추고 Alt + ↑ 또는 ↓를 누르세요.</p><p>예전 레시피에는 날짜 기록이 없어 기존 등록 순서를 기준으로 표시돼요.</p><button type="button" class="secondary" id="recipe-sort-close">닫기</button>';document.body.append(help);
  $('recipe-sort-info').onclick=()=>help.showModal();$('recipe-sort-close').onclick=()=>help.close();
- const wrap=document.createElement('div');wrap.id='copy-source-wrap';wrap.className='copy-source-wrap';
- wrap.innerHTML='<label for="copy-source">기존 레시피에서 복제 (선택)</label><select id="copy-source"></select><p class="small">내용을 가져온 뒤 수정해서 저장하세요. 원본과 연습 기록은 변경되지 않아요.</p>';
- $('name').previousElementSibling.before(wrap);
- $('copy-source').onchange=()=>{
-  const id=$('copy-source').value;if(!confirm('현재 입력 중인 내용을 선택한 레시피로 바꿀까요? 새로 작성하기를 선택했다면 입력 내용이 비워져요.')){$('copy-source').value='';return}
-  if(id){const r=data.recipes.find(r=>r.id===id);if(!r)return;fillRecipeFields(r);$('name').value=(r.name+' (복사)').slice(0,100);$('form-title').textContent='레시피 복제'}
-  else {fillRecipeFields({temperature:'HOT'});$('form-title').textContent='레시피 추가'}
- };
  $('recipe-sort').onchange=()=>{const previous=data;data={...data,sortMode:$('recipe-sort').value,customOrder:false};if(!save())data=previous;list()};
  $('recipe-list').addEventListener('click',e=>{const b=e.target.closest('button');if(b?.dataset.copyId)openRecipeEditor(null,b.dataset.copyId);if(b?.dataset.moveId)moveRecipeStep(b.dataset.moveId,Number(b.dataset.direction))});
  $('recipe-list').addEventListener('keydown',e=>{const row=e.target.closest('[data-recipe-id]');if(row&&e.target===row&&e.altKey&&['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();moveRecipeStep(row.dataset.recipeId,e.key==='ArrowUp'?-1:1)}});
